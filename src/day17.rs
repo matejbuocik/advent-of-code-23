@@ -18,9 +18,8 @@ struct Node {
 }
 
 impl Node {
-    fn new(x: usize, y: usize) -> Self {
+    fn new(x: usize, y: usize, dir: Option<Dir>) -> Self {
         let steps = 1;
-        let dir = None;
         Node { x, y, dir, steps }
     }
 }
@@ -36,14 +35,15 @@ pub fn p1() {
         })
         .collect();
     let distance = dijkstra(
-        Node::new(0, 0),
-        Node::new(graph[0].len() - 1, graph.len() - 1),
+        Node::new(0, 0, None),
+        Node::new(graph[0].len() - 1, graph.len() - 1, None),
         &graph,
     );
     println!("{}", distance);
 }
 
-fn dijkstra(start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
+fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
+    start.steps = 0;
     let mut heap = BinaryHeap::from([(Reverse(0), start)]);
     let mut dists = vec![vec![usize::MAX; graph[0].len()]; graph.len()];
     dists[start.y][start.x] = 0;
@@ -55,15 +55,23 @@ fn dijkstra(start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
             return dist;
         }
 
-        let neighbors = [
-            Node::new(node.x + 1, node.y),
-            Node::new(node.x, node.y + 1),
-            Node::new(node.x.wrapping_sub(1), node.y),
-            Node::new(node.x, node.y.wrapping_sub(1)),
+        let mut neighbors = [
+            Node::new(node.x, node.y.wrapping_sub(1), Some(Dir::Up)),
+            Node::new(node.x, node.y + 1, Some(Dir::Down)),
+            Node::new(node.x.wrapping_sub(1), node.y, Some(Dir::Left)),
+            Node::new(node.x + 1, node.y, Some(Dir::Right)),
         ];
 
+        match node.dir {
+            None => (),
+            Some(Dir::Up) => neighbors[0].steps += node.steps,
+            Some(Dir::Down) => neighbors[1].steps += node.steps,
+            Some(Dir::Left) => neighbors[2].steps += node.steps,
+            Some(Dir::Right) => neighbors[3].steps += node.steps,
+        }
+
         for nei in neighbors {
-            if nei.x >= graph.len() || nei.y >= graph.len() {
+            if nei.x >= graph.len() || nei.y >= graph.len() || nei.steps > 3 {
                 continue;
             }
 
