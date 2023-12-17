@@ -47,11 +47,19 @@ pub fn p1() {
         Node::new(0, 0, None),
         Node::new(graph[0].len() - 1, graph.len() - 1, None),
         &graph,
+        0,
+        3,
     );
-    println!("{}", distance);
+    println!("{}\n", distance);
 }
 
-fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
+fn dijkstra(
+    mut start: Node,
+    goal: Node,
+    graph: &Vec<Vec<usize>>,
+    min_steps: usize,
+    max_steps: usize,
+) -> usize {
     start.steps = 0;
     let mut dists = vec![vec![HashMap::new(); graph[0].len()]; graph.len()];
     let mut heap = BinaryHeap::from([(Reverse(0), Rc::new(start))]);
@@ -75,24 +83,40 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
             None => (),
             Some(Dir::Up) => {
                 neighbors[0].steps += node.steps;
-                neighbors.remove(1);
+                neighbors[1].steps = usize::MAX;
+                if node.steps < min_steps {
+                    neighbors[2].steps = usize::MAX;
+                    neighbors[3].steps = usize::MAX;
+                }
             }
             Some(Dir::Down) => {
                 neighbors[1].steps += node.steps;
-                neighbors.remove(0);
+                neighbors[0].steps = usize::MAX;
+                if node.steps < min_steps {
+                    neighbors[2].steps = usize::MAX;
+                    neighbors[3].steps = usize::MAX;
+                }
             }
             Some(Dir::Left) => {
                 neighbors[2].steps += node.steps;
-                neighbors.remove(3);
+                neighbors[3].steps = usize::MAX;
+                if node.steps < min_steps {
+                    neighbors[0].steps = usize::MAX;
+                    neighbors[1].steps = usize::MAX;
+                }
             }
             Some(Dir::Right) => {
                 neighbors[3].steps += node.steps;
-                neighbors.remove(2);
+                neighbors[2].steps = usize::MAX;
+                if node.steps < min_steps {
+                    neighbors[0].steps = usize::MAX;
+                    neighbors[1].steps = usize::MAX;
+                }
             }
         }
 
         for mut nei in neighbors {
-            if nei.x >= graph[0].len() || nei.y >= graph.len() || nei.steps > 3 {
+            if nei.x >= graph[0].len() || nei.y >= graph.len() || nei.steps > max_steps {
                 continue;
             }
 
@@ -108,7 +132,7 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
         }
     }
 
-    0
+    unreachable!();
 }
 
 fn draw_path(end: &Rc<Node>, graph: &Vec<Vec<usize>>) {
@@ -137,4 +161,22 @@ fn draw_path(end: &Rc<Node>, graph: &Vec<Vec<usize>>) {
     }
 }
 
-pub fn p2() {}
+pub fn p2() {
+    let input = crate::read_file(17);
+    let graph: Vec<Vec<_>> = input
+        .lines()
+        .map(|l| {
+            l.chars()
+                .map(|c| c.to_digit(10).unwrap() as usize)
+                .collect()
+        })
+        .collect();
+    let distance = dijkstra(
+        Node::new(0, 0, None),
+        Node::new(graph[0].len() - 1, graph.len() - 1, None),
+        &graph,
+        4,
+        10,
+    );
+    println!("{}", distance);
+}
