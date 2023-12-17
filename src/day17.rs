@@ -1,5 +1,6 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::rc::Rc;
 
 #[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 enum Dir {
@@ -9,18 +10,26 @@ enum Dir {
     Right,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
 struct Node {
     x: usize,
     y: usize,
     dir: Option<Dir>,
     steps: usize,
+    prev: Option<Rc<Node>>,
 }
 
 impl Node {
     fn new(x: usize, y: usize, dir: Option<Dir>) -> Self {
         let steps = 1;
-        Node { x, y, dir, steps }
+        let prev = None;
+        Node {
+            x,
+            y,
+            dir,
+            steps,
+            prev,
+        }
     }
 }
 
@@ -44,14 +53,16 @@ pub fn p1() {
 
 fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
     start.steps = 0;
-    let mut heap = BinaryHeap::from([(Reverse(0), start)]);
     let mut dists = vec![vec![usize::MAX; graph[0].len()]; graph.len()];
     dists[start.y][start.x] = 0;
+
+    let mut heap = BinaryHeap::from([(Reverse(0), Rc::new(start))]);
 
     while !heap.is_empty() {
         let (Reverse(dist), node) = heap.pop().unwrap();
 
         if node.x == goal.x && node.y == goal.y {
+            draw_path(&node, graph);
             return dist;
         }
 
@@ -70,7 +81,7 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
             Some(Dir::Right) => neighbors[3].steps += node.steps,
         }
 
-        for nei in neighbors {
+        for mut nei in neighbors {
             if nei.x >= graph.len() || nei.y >= graph.len() || nei.steps > 3 {
                 continue;
             }
@@ -78,12 +89,39 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
             let score = dist + graph[nei.y][nei.x];
             if score < dists[nei.y][nei.x] {
                 dists[nei.y][nei.x] = score;
-                heap.push((Reverse(score), nei));
+                nei.prev = Some(node.clone());
+                heap.push((Reverse(score), Rc::new(nei)));
             }
         }
     }
 
     0
+}
+
+fn draw_path(end: &Rc<Node>, graph: &Vec<Vec<usize>>) {
+    let mut drawing = vec![vec!['.'; graph[0].len()]; graph.len()];
+    let mut node = end;
+    while let Some(prev) = &node.prev {
+        match node.dir {
+            None => (),
+            Some(Dir::Up) => drawing[node.y][node.x] = '^',
+            Some(Dir::Down) => drawing[node.y][node.x] = 'v',
+            Some(Dir::Left) => drawing[node.y][node.x] = '<',
+            Some(Dir::Right) => drawing[node.y][node.x] = '>',
+        }
+        node = prev;
+    }
+
+    for (i, row) in drawing.iter().enumerate() {
+        for (j, ch) in row.iter().enumerate() {
+            if *ch == '.' {
+                print!("{}", (graph[i][j] as u8 + b'0') as char);
+            } else {
+                print!("{}", ch);
+            }
+        }
+        println!();
+    }
 }
 
 pub fn p2() {}
