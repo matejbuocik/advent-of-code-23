@@ -1,8 +1,8 @@
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap};
 use std::rc::Rc;
 
-#[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Hash)]
 enum Dir {
     Up,
     Down,
@@ -10,7 +10,7 @@ enum Dir {
     Right,
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 struct Node {
     x: usize,
     y: usize,
@@ -53,9 +53,7 @@ pub fn p1() {
 
 fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
     start.steps = 0;
-    let mut dists = vec![vec![usize::MAX; graph[0].len()]; graph.len()];
-    dists[start.y][start.x] = 0;
-
+    let mut dists = vec![vec![HashMap::new(); graph[0].len()]; graph.len()];
     let mut heap = BinaryHeap::from([(Reverse(0), Rc::new(start))]);
 
     while !heap.is_empty() {
@@ -66,7 +64,7 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
             return dist;
         }
 
-        let mut neighbors = [
+        let mut neighbors = vec![
             Node::new(node.x, node.y.wrapping_sub(1), Some(Dir::Up)),
             Node::new(node.x, node.y + 1, Some(Dir::Down)),
             Node::new(node.x.wrapping_sub(1), node.y, Some(Dir::Left)),
@@ -75,20 +73,35 @@ fn dijkstra(mut start: Node, goal: Node, graph: &Vec<Vec<usize>>) -> usize {
 
         match node.dir {
             None => (),
-            Some(Dir::Up) => neighbors[0].steps += node.steps,
-            Some(Dir::Down) => neighbors[1].steps += node.steps,
-            Some(Dir::Left) => neighbors[2].steps += node.steps,
-            Some(Dir::Right) => neighbors[3].steps += node.steps,
+            Some(Dir::Up) => {
+                neighbors[0].steps += node.steps;
+                neighbors.remove(1);
+            }
+            Some(Dir::Down) => {
+                neighbors[1].steps += node.steps;
+                neighbors.remove(0);
+            }
+            Some(Dir::Left) => {
+                neighbors[2].steps += node.steps;
+                neighbors.remove(3);
+            }
+            Some(Dir::Right) => {
+                neighbors[3].steps += node.steps;
+                neighbors.remove(2);
+            }
         }
 
         for mut nei in neighbors {
-            if nei.x >= graph.len() || nei.y >= graph.len() || nei.steps > 3 {
+            if nei.x >= graph[0].len() || nei.y >= graph.len() || nei.steps > 3 {
                 continue;
             }
 
             let score = dist + graph[nei.y][nei.x];
-            if score < dists[nei.y][nei.x] {
-                dists[nei.y][nei.x] = score;
+            let curr = dists[nei.y][nei.x]
+                .entry((nei.dir.unwrap(), nei.steps))
+                .or_insert(usize::MAX);
+            if score < *curr {
+                *curr = score;
                 nei.prev = Some(node.clone());
                 heap.push((Reverse(score), Rc::new(nei)));
             }
