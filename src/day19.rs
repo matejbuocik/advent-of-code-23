@@ -1,36 +1,10 @@
 use regex::Regex;
 use std::collections::HashMap;
 
-struct Part {
-    x: i64,
-    m: i64,
-    a: i64,
-    s: i64,
-}
-
-impl Part {
-    fn new(x: i64, m: i64, a: i64, s: i64) -> Self {
-        Part { x, m, a, s }
-    }
-
-    fn parse(str: &str) -> Vec<Self> {
-        let mut vec = vec![];
-        let re = Regex::new(r"\d+").unwrap();
-
-        for line in str.lines() {
-            let nums = re
-                .find_iter(line)
-                .map(|m| m.as_str().parse::<i64>().unwrap())
-                .collect::<Vec<_>>();
-            let part = Self::new(nums[0], nums[1], nums[2], nums[3]);
-            vec.push(part);
-        }
-
-        vec
-    }
-}
-
+type Part = (i64, i64, i64, i64);
+type Range = (Part, Part);
 type Function = dyn Fn(&Part) -> bool;
+
 struct Rule {
     cond: Option<Box<Function>>,
     next_wf: String,
@@ -52,10 +26,10 @@ impl Rule {
 
         let cond = Box::new(move |p: &Part| {
             let n = match category.as_str() {
-                "x" => p.x,
-                "m" => p.m,
-                "a" => p.a,
-                "s" => p.s,
+                "x" => p.0,
+                "m" => p.1,
+                "a" => p.2,
+                "s" => p.3,
                 _ => panic!(),
             };
 
@@ -93,11 +67,24 @@ fn get_workflows(str: &str) -> HashMap<String, Vec<Rule>> {
     map
 }
 
+fn get_parts(str: &str) -> Vec<Part> {
+    let re = Regex::new(r"\d+").unwrap();
+    str.lines()
+        .map(|l| {
+            let nums = re
+                .find_iter(l)
+                .map(|m| m.as_str().parse::<i64>().unwrap())
+                .collect::<Vec<_>>();
+            (nums[0], nums[1], nums[2], nums[3])
+        })
+        .collect()
+}
+
 pub fn p1() {
     let input = crate::read_file(19);
     let section = input.split("\n\n").collect::<Vec<_>>();
     let workflows = get_workflows(section[0]);
-    let parts = Part::parse(section[1]);
+    let parts = get_parts(section[1]);
 
     let mut result = 0;
 
@@ -105,9 +92,7 @@ pub fn p1() {
         let mut curr = "in";
 
         while curr != "A" && curr != "R" {
-            let rules = workflows.get(curr).unwrap();
-
-            for rule in rules {
+            for rule in workflows.get(curr).unwrap() {
                 match &rule.cond {
                     None => {
                         curr = rule.next_wf.as_str();
@@ -122,7 +107,7 @@ pub fn p1() {
         }
 
         if curr == "A" {
-            result += part.x + part.m + part.a + part.s;
+            result += part.0 + part.1 + part.2 + part.3;
         }
     }
 
@@ -132,4 +117,37 @@ pub fn p1() {
 pub fn p2() {
     let input = crate::read_file(19);
     let section = input.split("\n\n").collect::<Vec<_>>();
+    let workflows = get_workflows(section[0]);
+
+    let mut result = 0;
+    let mut states: Vec<(&str, Range)> = vec![("A", ((1, 1, 1, 1), (4000, 4000, 4000, 4000)))];
+
+    while let Some(state) = states.pop() {
+        let (label, (from, to)) = state;
+
+        if label == "A" {
+            result += (to.0 - from.0 + 1)
+                * (to.1 - from.1 + 1)
+                * (to.2 - from.2 + 1)
+                * (to.3 - from.3 + 1);
+            continue;
+        } else if label == "R" {
+            continue;
+        }
+
+        for rule in workflows.get(label).unwrap() {
+            match &rule.cond {
+                None => {
+                    curr = rule.next_wf.as_str();
+                }
+                Some(cond) if (*cond)(&part) => {
+                    curr = rule.next_wf.as_str();
+                    break;
+                }
+                _ => (),
+            }
+        }
+    }
+
+    println!("{}", result);
 }
