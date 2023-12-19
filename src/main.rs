@@ -20,12 +20,13 @@ mod day15;
 mod day16;
 mod day17;
 mod day18;
+mod day19;
 
 pub fn read_file(n: u32) -> String {
     fs::read_to_string(format!("data/{}.txt", n)).unwrap()
 }
 
 fn main() {
-    day18::p1();
-    day18::p2();
+    day19::p1();
+    day19::p2();
 }
