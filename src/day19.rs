@@ -30,24 +30,25 @@ impl Part {
     }
 }
 
+type Function = dyn Fn(&Part) -> bool;
 struct Rule {
-    cond: Box<dyn Fn(&Part) -> bool>,
+    cond: Option<Box<Function>>,
     next_wf: String,
 }
 
 impl Rule {
-    fn parse(str: &str) -> Option<Self> {
+    fn parse(str: &str) -> Self {
         let vec = str.split(':').collect::<Vec<_>>();
         if vec.len() < 2 {
-            return None;
+            return Rule {
+                cond: None,
+                next_wf: vec[0].to_string(),
+            };
         }
 
-        let condition = vec[0];
-        let next_wf = vec[1].to_string();
-
-        let category = condition[..1].to_string();
-        let comp = condition[1..2].to_string();
-        let num = condition[2..].parse::<i64>().unwrap();
+        let category = vec[0][..1].to_string();
+        let comp = vec[0][1..2].to_string();
+        let num = vec[0][2..].parse::<i64>().unwrap();
 
         let cond = Box::new(move |p: &Part| {
             let n = match category.as_str() {
@@ -65,50 +66,37 @@ impl Rule {
             }
         });
 
-        Some(Rule { cond, next_wf })
+        Rule {
+            cond: Some(cond),
+            next_wf: vec[1].to_string(),
+        }
     }
 }
 
-struct WorkFlow {
-    rules: Vec<Rule>,
-    next_wf: String,
-}
+fn get_workflows(str: &str) -> HashMap<String, Vec<Rule>> {
+    let mut map = HashMap::new();
 
-impl WorkFlow {
-    fn new() -> Self {
-        Self {
-            rules: vec![],
-            next_wf: String::new(),
-        }
+    for line in str.lines() {
+        let vec = line.split('{').collect::<Vec<_>>();
+        let label = vec[0].to_string();
+
+        let mut rules = vec![];
+        vec[1]
+            .strip_suffix('}')
+            .unwrap()
+            .split(',')
+            .for_each(|r| rules.push(Rule::parse(r)));
+
+        map.insert(label, rules);
     }
 
-    fn parse(str: &str) -> HashMap<String, Self> {
-        let mut dict = HashMap::new();
-
-        for line in str.lines() {
-            let vec = line.split('{').collect::<Vec<_>>();
-            let label = vec[0].to_string();
-
-            let mut wf = WorkFlow::new();
-
-            for rule_str in vec[1].strip_suffix('}').unwrap().split(',') {
-                match Rule::parse(rule_str) {
-                    Some(rule) => wf.rules.push(rule),
-                    None => wf.next_wf = rule_str.to_string(), // Rule without condition
-                }
-            }
-
-            dict.insert(label, wf);
-        }
-
-        dict
-    }
+    map
 }
 
 pub fn p1() {
     let input = crate::read_file(19);
     let section = input.split("\n\n").collect::<Vec<_>>();
-    let workflows = WorkFlow::parse(section[0]);
+    let workflows = get_workflows(section[0]);
     let parts = Part::parse(section[1]);
 
     let mut result = 0;
@@ -116,17 +104,21 @@ pub fn p1() {
     for part in parts {
         let mut curr = "in";
 
-        'in_workflows: while curr != "A" && curr != "R" {
-            let wf = workflows.get(curr).unwrap();
+        while curr != "A" && curr != "R" {
+            let rules = workflows.get(curr).unwrap();
 
-            for rule in &wf.rules {
-                if (*rule.cond)(&part) {
-                    curr = rule.next_wf.as_str();
-                    continue 'in_workflows;
+            for rule in rules {
+                match &rule.cond {
+                    None => {
+                        curr = rule.next_wf.as_str();
+                    }
+                    Some(cond) if (*cond)(&part) => {
+                        curr = rule.next_wf.as_str();
+                        break;
+                    }
+                    _ => (),
                 }
             }
-
-            curr = wf.next_wf.as_str();
         }
 
         if curr == "A" {
@@ -137,4 +129,7 @@ pub fn p1() {
     println!("{}", result);
 }
 
-pub fn p2() {}
+pub fn p2() {
+    let input = crate::read_file(19);
+    let section = input.split("\n\n").collect::<Vec<_>>();
+}
